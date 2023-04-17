@@ -1,3 +1,4 @@
+from re import A
 import typing as t
 import abc
 from dataclasses import dataclass
@@ -80,7 +81,7 @@ class EpsilonGreedyAgent(Agent):
         )
 
 
-class ThompshonSamplingAgent(Agent):
+class ThompsonSamplingAgent(Agent):
     def __init__(self, num_actions: int):
         super().__init__(num_actions)
         self._as: t.List[float] = [1] * self.num_actions
@@ -89,7 +90,7 @@ class ThompshonSamplingAgent(Agent):
         self._Bs: t.List[float] = [1] * self.num_actions
 
     def __str__(self) -> str:
-        return f"ThompsonSamling"
+        return f"ThompsonSampling"
 
     @property
     def estimates(self):
@@ -171,12 +172,56 @@ class Simulation:
         return action1, action2, reward1, reward2
 
 
+def plot_bar(ax, unique, counts, title):
+    spacing = 0.5
+
+    ax.bar(unique, counts)
+    ax.set_xticks(unique)
+
+    for i in range(len(unique)):
+        ax.text(i, counts[i] + spacing, counts[i], ha="center", va="bottom")
+
+    ax.set_title(title)
+
+
+def plot_simulation(epsilon, reward_averages1, reward_averages2, actions1, actions2):
+
+    # Bar Graphs
+
+    fig = plt.figure(figsize=(10, 10))
+    gs = fig.add_gridspec(2, 2)
+
+    ax_greedy = fig.add_subplot(gs[0, 0])
+    ax_thompson = fig.add_subplot(gs[0, 1])
+
+    unique_greedy, counts_greedy = np.unique(actions1, return_counts=True)
+    unique_thompson, counts_thompson = np.unique(actions2, return_counts=True)
+
+    fig.suptitle(f"Greedy vs Thompson Sampling (Epsilon={epsilon})")
+
+    plot_bar(ax_greedy, unique_greedy, counts_greedy, "Epsilon Greedy")
+    plot_bar(ax_thompson, unique_thompson, counts_thompson, "Thompson Sampling")
+
+    # Line Graph
+
+    ax_lines = fig.add_subplot(gs[1, :])
+
+    ax_lines.plot(reward_averages1, label="Epsilon Greedy")
+    ax_lines.plot(reward_averages2, label="Thompson Sampling")
+    ax_lines.set_title("Average Reward")
+    ax_lines.set_ylabel("Average Reward")
+    ax_lines.set_xlabel("Step")
+    ax_lines.legend()
+
+    plt.show()
+
+
 def run_simulation():
     steps = 1000
     epsilon = 0.1
 
     agent1 = EpsilonGreedyAgent(2, epsilon)
-    agent2 = ThompshonSamplingAgent(2)
+    agent2 = ThompsonSamplingAgent(2)
     table = RewardTable(
         {
             (0, 0): (-1, -1),
@@ -189,19 +234,7 @@ def run_simulation():
     simulation = Simulation(agent1, agent2, table)
     reward_averages1, reward_averages2, actions1, actions2 = simulation.run(steps)
 
-    plt.bar(
-        (0, 1),
-        (
-            np.count_nonzero(
-                actions1,
-            )
-        ),
-        label="Epsilon Greedy",
-    )
-    plt.bar(actions2, label="Thompson Sampling")
-
-    plt.legend()
-    plt.show()
+    plot_simulation(epsilon, reward_averages1, reward_averages2, actions1, actions2)
 
 
 run_simulation()
