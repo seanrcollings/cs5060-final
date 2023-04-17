@@ -1,9 +1,12 @@
-from re import A
-import typing as t
 import abc
+import re
+import typing as t
 from dataclasses import dataclass
+
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
 
 
 class Agent(abc.ABC):
@@ -20,25 +23,6 @@ class Agent(abc.ABC):
     @abc.abstractmethod
     def best_estimated_reward(self):
         ...
-
-    # def run(self, steps: int, bandits: NormalBandits):
-    #     actions, rewards = [], []
-    #     reward_averages = []
-
-    #     for step in range(steps):
-    #         action, reward = self.take_step(step, bandits)
-    #         actions.append(action)
-    #         rewards.append(reward)
-    #         reward_averages.append(sum(rewards) / len(rewards))
-
-    #     return np.array(reward_averages)
-
-    # def take_step(self, step: int, bandits: NormalBandits):
-    #     action = self.take_action()
-    #     self.action_counts[action] += 1
-    #     reward = bandits.reward(action)
-    #     self.update_estimate(action, reward)
-    #     return action, reward
 
     @abc.abstractmethod
     def take_action(self) -> int:
@@ -126,15 +110,6 @@ class ThompsonSamplingAgent(Agent):
     def best_estimated_reward(self):
         return max(self.estimates)
 
-    # def take_step(self, step, bandits: NormalBandits):
-    #     res = super().take_step(step, bandits)
-    #     if step == self.reset_after:
-    #         self._as = [1] * self.num_actions
-    #         self._bs = [1] * self.num_actions
-    #         self._As = [1] * self.num_actions
-    #         self._Bs = [1] * self.num_actions
-    #     return res
-
     def take_action(self):
         return np.argmax(np.random.beta(self._as, self._bs))
 
@@ -148,12 +123,88 @@ class ThompsonSamplingAgent(Agent):
         self._bs[action] += 1 - reward
 
 
+class Network(nn.Module):
+    def __init__(self, input_size, output_size):
+        super().__init__()
+        self.fc1 = nn.Linear(input_size, 4)
+        self.fc2 = nn.Linear(4, output_size)
+
+    def forward(self, x):
+        out = self.fc1(x)
+        out = self.fc2(out)
+        out = torch.sigmoid(out)
+        return out
+
+
+class NetworkAgent(Agent):
+    def __init__(
+        self,
+        num_actions: int,
+        network: Network,
+        x_init: np.ndarray,
+        lr: float,
+    ):
+        super().__init__(num_actions)
+
+        self.lr = lr
+        self.x = np.array([0, 1])
+        self._estimates = np.random.random(num_actions)
+
+        self.model = network
+
+    def __str__(self) -> str:
+        return f"NetworkAgent(lr={self.lr}, decay={self.decay})"
+
+    @property
+    def estimates(self):
+        return self._estimates
+
+    @property
+    def best_estimated_reward(self):
+        return np.max(self._estimates)
+
+    def fit(self):
+        x = torch.from_numpy(self.x).float()
+        y = torch.from_numpy(self._estimates).float()
+
+        self.criterion = nn.MSELoss(size_average=False)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)
+
+        outputs = self.model(x)
+        loss = self.criterion(outputs.reshape(2), y)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+    def take_action(self):
+        self.fit()
+        x = torch.from_numpy(self.x).float()
+        y_hat = self.model(x)
+        action = np.argmax(y_hat.detach().numpy())
+        return action
+
+    def update_estimate(self, action: int, reward: float):
+        self._estimates[action] += (1.0 / self.action_counts[action]) * (
+            reward - self._estimates[action]
+        )
+
+
 @dataclass
 class RewardTable:
     table: dict[tuple[int, int], tuple[int, int]]
 
     def reward(self, act1: int, act2: int) -> tuple[int, int]:
         return self.table[(act1, act2)]
+
+    def rewards_for_agent(self, index, flatten=False):
+        width = len(self.table) // 2
+        rewards = np.zeros((width, width), dtype=int)
+
+        for i, (_, value) in enumerate(self.table.items()):
+            rewards[i // width, i % width] = value[index]
+
+        return rewards.reshape(1, -1) if flatten else rewards
 
 
 @dataclass
@@ -197,7 +248,7 @@ class Simulation:
 
 
 def plot_bar(ax, unique, counts, title):
-    spacing = 0.5
+    spacing = 0.09
 
     ax.bar(unique, counts)
     ax.set_xticks(unique)
@@ -241,11 +292,9 @@ def plot_simulation(epsilon, reward_averages1, reward_averages2, actions1, actio
 
 
 def run_simulation():
-    steps = 1000
+    steps = 100
     epsilon = 0.1
 
-    agent1 = EpsilonGreedyAgent(2, epsilon)
-    agent2 = ThompsonSamplingAgent(2)
     table = RewardTable(
         {
             (0, 0): (-1, -1),
@@ -254,6 +303,12 @@ def run_simulation():
             (1, 1): (-4, -4),
         }
     )
+
+    network_rewards = table.rewards_for_agent(0, flatten=True)
+
+    network = Network(2, 2)
+    agent1 = NetworkAgent(2, network, network_rewards, lr=0.01)
+    agent2 = ThompsonSamplingAgent(2)
 
     simulation = Simulation(agent1, agent2, table)
     reward_averages1, reward_averages2, actions1, actions2 = simulation.run(steps)
