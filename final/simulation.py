@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import typing as t
+from dataclasses import dataclass, field
 import numpy as np
 import logging
 
@@ -16,46 +17,51 @@ class SimulationResult:
 
 @dataclass
 class Simulation:
-    agent1: Agent
-    agent2: Agent
+    agents: t.Sequence[Agent]
     table: RewardTable
+    event_handlers: dict[str, list[t.Callable[[dict[str, t.Any]], None]]] = field(
+        default_factory=dict
+    )
 
     def run(self, steps: int) -> SimulationResult:
-        actions1, actions2, rewards1, rewards2 = [], [], [], []
-        reward_averages1, reward_averages2 = [], []
+        all_actions: list[list[int]] = [[] for _ in self.agents]
+        all_rewards: list[list[float]] = [[] for _ in self.agents]
+        reward_averages: list[list[float]] = [[] for _ in self.agents]
 
         for step in range(steps):
+            self.event("step", {"step": step})
             if step % 10 == 0:
                 logger.info(f"Step {step}")
 
-            action1, action2, reward1, reward2 = self.take_step()
-            actions1.append(action1)
-            actions2.append(action2)
-            rewards1.append(reward1)
-            rewards2.append(reward2)
-            reward_averages1.append(sum(rewards1) / len(rewards1))
-            reward_averages2.append(sum(rewards2) / len(rewards2))
+            actions, rewards = self.take_step()
+
+            for i, (action, reward) in enumerate(zip(actions, rewards)):
+                all_actions[i].append(action)
+                all_rewards[i].append(reward)
+                reward_averages[i].append(sum(all_rewards[i]) / len(all_rewards[i]))
 
         return SimulationResult(
-            (
-                np.array(reward_averages1),
-                np.array(reward_averages2),
-            ),
-            (
-                np.array(actions1),
-                np.array(actions2),
-            ),
+            reward_averages=tuple(np.array(x) for x in reward_averages),
+            actions=tuple(np.array(x) for x in all_actions),
         )
 
-    def take_step(self) -> tuple[int, int, int, int]:
-        action1 = self.agent1.take_action()
-        self.agent1.action_counts[action1] += 1
-        action2 = self.agent2.take_action()
-        self.agent2.action_counts[action2] += 1
+    def take_step(self) -> tuple[t.Sequence[int], t.Sequence[int]]:
+        actions = []
+        for agent in self.agents:
+            action = agent.take_action()
+            actions.append(action)
+            agent.action_counts[action] += 1
 
-        reward1, reward2 = self.table.reward(action1, action2)
+        rewards = self.table.reward(*actions)
 
-        self.agent1.update_estimate(action1, reward1)
-        self.agent2.update_estimate(action2, reward2)
+        for agent, action, reward in zip(self.agents, actions, rewards):
+            agent.update_estimate(action, reward)
 
-        return action1, action2, reward1, reward2
+        return actions, rewards
+
+    def on(self, event: str, handler: t.Callable[[dict[str, t.Any]], None]):
+        self.event_handlers.setdefault(event, []).append(handler)
+
+    def event(self, name: str, data: dict[str, t.Any]):
+        for handler in self.event_handlers.get(name, []):
+            handler(data)

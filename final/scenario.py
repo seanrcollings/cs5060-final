@@ -1,6 +1,6 @@
+import typing as t
 from dataclasses import dataclass
 import logging
-import typing as t
 
 import numpy as np
 import matplotlib.pyplot as plt  # type: ignore
@@ -16,12 +16,11 @@ logger = logging.getLogger("final")
 class Scenario:
     name: str
     steps: int
-    agent1: Agent
-    agent2: Agent
+    agents: t.Sequence[Agent]
     table: RewardTable
 
     def run(self, plot: bool = False, verbose: bool = False):
-        simulation = Simulation(self.agent1, self.agent2, self.table)
+        simulation = Simulation(self.agents, self.table)
 
         if verbose:
             logging.basicConfig(level=logging.INFO)
@@ -32,33 +31,27 @@ class Scenario:
             self.plot_simulation(res)
 
     def plot_simulation(self, res: SimulationResult):
-        actions1, actions2 = res.actions
         # Bar Graphs
 
         fig = plt.figure(figsize=(10, 10))
-        gs = fig.add_gridspec(2, 2)
+        fig.suptitle(f"{self.name}: {' vs '.join(str(a) for a in self.agents)}")
+        gs = fig.add_gridspec(2, len(self.agents))
 
-        ax_greedy = fig.add_subplot(gs[0, 0])
-        ax_thompson = fig.add_subplot(gs[0, 1])
-
-        unique_1, counts_1 = np.unique(actions1, return_counts=True)
-        unique_2, counts_2 = np.unique(actions2, return_counts=True)
-
-        fig.suptitle(f"{self.name}: {self.agent1} vs {self.agent2}")
-
-        self.plot_bar(ax_greedy, unique_1, counts_1, str(self.agent1))
-        self.plot_bar(ax_thompson, unique_2, counts_2, str(self.agent2))
+        for idx, actions in enumerate(res.actions):
+            ax = fig.add_subplot(gs[0, idx])
+            unique, counts = np.unique(actions, return_counts=True)
+            self.plot_bar(ax, unique, counts, str(self.agents[idx]))
 
         # Line Graph
-        reward_averages1, reward_averages2 = res.reward_averages
 
         ax_lines = fig.add_subplot(gs[1, :])
-
-        ax_lines.plot(reward_averages1, label=str(self.agent1))
-        ax_lines.plot(reward_averages2, label=str(self.agent2))
         ax_lines.set_title("Average Reward")
         ax_lines.set_ylabel("Average Reward")
         ax_lines.set_xlabel("Step")
+
+        for idx, rewards in enumerate(res.reward_averages):
+            ax_lines.plot(rewards, label=str(self.agents[idx]))
+
         ax_lines.legend()
 
         plt.show()

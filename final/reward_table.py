@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class RewardTable:
-    table: dict[tuple[int, int], tuple[int, int]]
+    table: dict[tuple[int, ...], tuple[int, ...]]
 
-    def reward(self, act1: int, act2: int) -> tuple[int, int]:
-        return self.table[(act1, act2)]
+    def reward(self, *actions: int) -> tuple[int, ...]:
+        return self.table[actions]

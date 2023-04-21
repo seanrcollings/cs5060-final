@@ -2,7 +2,12 @@ import argparse
 import sys
 
 from final.reward_table import RewardTable
-from final.agents import EpsilonGreedyAgent
+from final.agents import (
+    EpsilonGreedyAgent,
+    Network,
+    NetworkAgent,
+    ThompsonSamplingAgent,
+)
 from final.scenario import Scenario
 
 
@@ -18,14 +23,28 @@ table = RewardTable(
 
 sc1 = Scenario(
     "Basic Scenario",
-    100,
-    EpsilonGreedyAgent(2, 0.1),
-    EpsilonGreedyAgent(2, 0.1),
-    table,
+    steps=100,
+    agents=(EpsilonGreedyAgent(2, 0.1), EpsilonGreedyAgent(2, 0.1)),
+    table=table,
+)
+
+sc1 = Scenario(
+    "Basic Scenario",
+    steps=100,
+    agents=(EpsilonGreedyAgent(2, 0.1), ThompsonSamplingAgent(2)),
+    table=table,
+)
+
+sc2 = Scenario(
+    "ML Scenario",
+    steps=100,
+    agents=(EpsilonGreedyAgent(2, 0.1), NetworkAgent(2, Network(2, 2), 0.1)),
+    table=table,
 )
 
 scenarios = {
     "sc1": sc1,
+    "sc2": sc2,
 }
 
 
