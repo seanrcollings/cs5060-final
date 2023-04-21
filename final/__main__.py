@@ -1,5 +1,6 @@
 import argparse
 import sys
+import numpy as np
 
 from final.reward_table import RewardTable
 from final.agents import (
@@ -10,6 +11,7 @@ from final.agents import (
 )
 from final.scenario import Scenario
 
+np.random.seed(1231412)  # Set the seed for reproducibility
 
 table = RewardTable(
     {
@@ -21,41 +23,50 @@ table = RewardTable(
 )
 
 
-sc1 = Scenario(
-    "Basic Scenario",
-    steps=100,
-    agents=(EpsilonGreedyAgent(2, 0.1), EpsilonGreedyAgent(2, 0.1)),
-    table=table,
-)
-
-sc1 = Scenario(
-    "Basic Scenario",
+best_epsilon = Scenario(
+    "Best Epsilon",
     steps=100,
     agents=(EpsilonGreedyAgent(2, 0.1), ThompsonSamplingAgent(2)),
     table=table,
 )
 
-sc2 = Scenario(
-    "ML Scenario",
-    steps=100,
-    agents=(EpsilonGreedyAgent(2, 0.1), NetworkAgent(2, Network(2, 2), 0.1)),
+best_thompson = Scenario(
+    "Best Thompson",
+    steps=1000,
+    agents=(EpsilonGreedyAgent(2, 0.1), ThompsonSamplingAgent(2)),
+    table=table,
+)
+
+best_nn = Scenario(
+    "Best NN",
+    steps=1000,
+    agents=(
+        EpsilonGreedyAgent(2, 0.1),
+        NetworkAgent(2, Network(2, 2), 0.1),
+    ),
     table=table,
 )
 
 scenarios = {
-    "sc1": sc1,
-    "sc2": sc2,
+    "best_epsilon": best_epsilon,
+    "best_thompson": best_thompson,
+    "best_nn": best_nn,
 }
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("final")
     parser.add_argument(
         "scenario",
         help=f"The scenario to run. Possible options: {', '.join(scenarios.keys())}",
     )
     parser.add_argument(
-        "--plot", "-p", action="store_false", help="Plot the results", default=True
+        "--no-plot",
+        "-n",
+        dest="plot",
+        action="store_false",
+        help="Do no plot the results",
+        default=True,
     )
     parser.add_argument(
         "--verbose",

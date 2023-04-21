@@ -2,6 +2,7 @@ import typing as t
 from dataclasses import dataclass, field
 import numpy as np
 import logging
+from final.event import EventContainer
 
 from final.reward_table import RewardTable
 from final.agents import Agent
@@ -16,12 +17,12 @@ class SimulationResult:
 
 
 @dataclass
-class Simulation:
+class Simulation(EventContainer):
     agents: t.Sequence[Agent]
     table: RewardTable
-    event_handlers: dict[str, list[t.Callable[[dict[str, t.Any]], None]]] = field(
-        default_factory=dict
-    )
+
+    def __post_init__(self):
+        super().__init__()
 
     def run(self, steps: int) -> SimulationResult:
         all_actions: list[list[int]] = [[] for _ in self.agents]
@@ -58,10 +59,3 @@ class Simulation:
             agent.update_estimate(action, reward)
 
         return actions, rewards
-
-    def on(self, event: str, handler: t.Callable[[dict[str, t.Any]], None]):
-        self.event_handlers.setdefault(event, []).append(handler)
-
-    def event(self, name: str, data: dict[str, t.Any]):
-        for handler in self.event_handlers.get(name, []):
-            handler(data)

@@ -162,7 +162,7 @@ class NetworkAgent(Agent):
         x = torch.from_numpy(self.x).float()
         y = torch.from_numpy(self._estimates).float()
 
-        self.criterion = nn.MSELoss(size_average=False)
+        self.criterion = nn.MSELoss(reduction="sum")
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)
 
         outputs = self.model(x)
