@@ -22,7 +22,7 @@ table = RewardTable(
     }
 )
 
-
+# Where each algorithm is the best of the competition
 best_epsilon = Scenario(
     "Best Epsilon",
     steps=100,
@@ -58,7 +58,10 @@ def main():
     parser = argparse.ArgumentParser("final")
     parser.add_argument(
         "scenario",
-        help=f"The scenario to run. Possible options: {', '.join(scenarios.keys())}",
+        help=(
+            "The scenario to run. Note that 'all' will runn all other scenarios. "
+            f"Possible options: all, {', '.join(scenarios.keys())}"
+        ),
     )
     parser.add_argument(
         "--no-plot",
@@ -68,21 +71,17 @@ def main():
         help="Do no plot the results",
         default=True,
     )
-    parser.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        help="Print out logging messages",
-        default=False,
-    )
 
     res = parser.parse_args(sys.argv[1:])
 
-    if res.scenario not in scenarios:
+    if res.scenario == "all":
+        for scenario in scenarios.values():
+            scenario.run(res.plot)
+    elif res.scenario not in scenarios:
         print(f"Invalid scenario: {res.scenario}")
         sys.exit(1)
-
-    scenarios[res.scenario].run(res.plot, res.verbose)
+    else:
+        scenarios[res.scenario].run(res.plot)
 
 
 main()

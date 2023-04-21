@@ -2,8 +2,9 @@ import typing as t
 from dataclasses import dataclass, field
 import numpy as np
 import logging
-from final.event import EventContainer
+from rich.progress import track
 
+from final.event import EventContainer
 from final.reward_table import RewardTable
 from final.agents import Agent
 
@@ -24,12 +25,12 @@ class Simulation(EventContainer):
     def __post_init__(self):
         super().__init__()
 
-    def run(self, steps: int) -> SimulationResult:
+    def run(self, steps: int, name: str) -> SimulationResult:
         all_actions: list[list[int]] = [[] for _ in self.agents]
         all_rewards: list[list[float]] = [[] for _ in self.agents]
         reward_averages: list[list[float]] = [[] for _ in self.agents]
 
-        for step in range(steps):
+        for step in track(range(steps), description=f"Running {name} Simulation"):
             self.event("step", {"step": step})
             if step % 10 == 0:
                 logger.info(f"Step {step}")

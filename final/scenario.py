@@ -1,16 +1,17 @@
 import typing as t
 from dataclasses import dataclass
-import logging
-
 import numpy as np
 import matplotlib.pyplot as plt  # type: ignore
+
+from rich.panel import Panel
+from rich.console import Group
+from rich.table import Table
 
 from final.event import EventContainer
 from final.reward_table import RewardTable
 from final.agents import Agent
 from final.simulation import Simulation, SimulationResult
-
-logger = logging.getLogger("final")
+from final.console import console
 
 
 @dataclass
@@ -23,22 +24,46 @@ class Scenario(EventContainer):
     def __post_init__(self):
         super().__init__()
 
-    def run(self, plot: bool = False, verbose: bool = False):
-        print(f"Running Scenario {self.name}")
-        print(f"  Running for {self.steps} steps")
-        print(f"  Agents: {', '.join(str(a) for a in self.agents)}")
-        print(f"  Reward Table: {self.table}")
+    def run(self, plot: bool = False):
 
         simulation = Simulation(self.agents, self.table)
         simulation.event_handlers = self.event_handlers
 
-        if verbose:
-            logging.basicConfig(level=logging.INFO)
+        res = simulation.run(self.steps, self.name)
 
-        res = simulation.run(self.steps)
+        table = Table()
+        table.add_column("Agent")
+        table.add_column("Average Reward", justify="right")
+        for i in np.unique(res.actions[0]):
+            table.add_column(f"Action # {i} ", justify="right")
+
+        for agent, reward, actions in zip(
+            self.agents, res.reward_averages, res.actions
+        ):
+            _, counts = np.unique(actions, return_counts=True)
+
+            table.add_row(
+                str(agent),
+                f"{reward[-1]:.2f}",
+                *[str(c) for c in counts],
+            )
+
+        contents = ""
+        contents += f"[bold]Parameters[/bold]\n"
+        contents += f"  - Steps: {self.steps}\n"
+        contents += f"  - Agents: {', '.join(str(a) for a in self.agents)}\n"
+        contents += f"  - Reward Table: {self.table}\n"
+
+        contents += f"\n[bold]Results[/bold]"
+
+        group = Group(contents, table)
+
+        console.print(Panel.fit(group, title=f"Scenario {self.name}"))
 
         if plot:
             self.plot_simulation(res)
+
+        print()
 
     def plot_simulation(self, res: SimulationResult):
         # Bar Graphs
