@@ -53,6 +53,28 @@ class StaticAgent(Agent):
         return self.action
 
 
+class RandomAgent(Agent):
+    def __init__(self, num_actions: int):
+        super().__init__(num_actions)
+        self._estimate = np.zeros(self.num_actions)
+
+    def __str__(self) -> str:
+        return "RandomAgent"
+
+    @property
+    def estimates(self):
+        return self._estimate
+
+    def best_estimated_reward(self):
+        return self._estimate.max()
+
+    def update_estimate(self, action: int, reward: float):
+        self._estimate[action] = reward
+
+    def take_action(self):
+        return np.random.randint(self.num_actions)
+
+
 class EpsilonGreedyAgent(Agent):
     def __init__(self, num_actions: int, epsilon: float):
         super().__init__(num_actions)

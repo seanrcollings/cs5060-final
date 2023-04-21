@@ -17,6 +17,7 @@ from final.console import console
 @dataclass
 class Scenario(EventContainer):
     name: str
+    description: str
     steps: int
     agents: t.Sequence[Agent]
     table: RewardTable
@@ -48,7 +49,7 @@ class Scenario(EventContainer):
                 *[str(c) for c in counts],
             )
 
-        contents = ""
+        contents = f"[bold]Description: [/bold]{self.description}\n\n"
         contents += f"[bold]Parameters[/bold]\n"
         contents += f"  - Steps: {self.steps}\n"
         contents += f"  - Agents: {', '.join(str(a) for a in self.agents)}\n"
