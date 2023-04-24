@@ -33,6 +33,20 @@ t2 = RewardTable(
     }
 )
 
+
+three_agents_table = RewardTable(
+    {
+        (0, 0, 0): (7, 7, 7),
+        (0, 0, 1): (3, 3, 9),
+        (0, 1, 0): (3, 9, 3),
+        (0, 1, 1): (9, 3, 3),
+        (1, 0, 0): (0, 5, 5),
+        (1, 0, 1): (5, 0, 5),
+        (1, 1, 0): (5, 5, 0),
+        (1, 1, 1): (1, 1, 1),
+    }
+)
+
 # Where each algorithm is the best of the competition
 best_epsilon = Scenario(
     "Best Epsilon",
@@ -61,6 +75,14 @@ best_nn = Scenario(
     table=table,
 )
 
+switch_table_no_nn = Scenario(
+    "Switch Table",
+    "Scenario where the table is replaced with a new one after 500 steps",
+    steps=5000,
+    agents=(EpsilonGreedyAgent(2, 0.1), ThompsonSamplingAgent(2)),
+    table=table,
+)
+
 switch_table = Scenario(
     "Switch Table",
     "Scenario where the table is replaced with a new one after 500 steps",
@@ -72,8 +94,26 @@ switch_table = Scenario(
     table=table,
 )
 
+three_agents = Scenario(
+    "Three Agents",
+    "Scenario where there are three agents",
+    steps=1000,
+    agents=(
+        EpsilonGreedyAgent(2, 0.1),
+        ThompsonSamplingAgent(2),
+        NetworkAgent(2, Network(2, 2), 0.1),
+    ),
+    table=three_agents_table,
+)
+
 
 @switch_table.on("step")
+def switch_table_step(simulation, data):
+    if data["step"] == 500:
+        simulation.table = t2
+
+
+@switch_table_no_nn.on("step")
 def switch_table_step(simulation, data):
     if data["step"] == 500:
         simulation.table = t2
@@ -83,7 +123,9 @@ scenarios = {
     "best_epsilon": best_epsilon,
     "best_thompson": best_thompson,
     "best_nn": best_nn,
+    "switch_table_no_nn": switch_table_no_nn,
     "switch_table": switch_table,
+    "three_agents": three_agents,
 }
 
 
@@ -101,7 +143,7 @@ def main():
         "-n",
         dest="plot",
         action="store_false",
-        help="Do no plot the results",
+        help="Do not plot the results",
         default=True,
     )
 
